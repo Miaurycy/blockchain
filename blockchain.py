@@ -7,62 +7,91 @@ import pickle
 from hash_util import hash_string_256, hash_block
 
 MINING_REWARD = 10
-genesis_block = {
-    "previous_hash": "",
-    "index": 0,
-    "transactions": [],
-    "proof": 100
-}
-blockchain = [genesis_block]
+blockchain = []
 open_transactions = []
 owner = "Miaurycy"
 participants = {"Miaurycy"}
 
 
 def load_data():
-    with open("blockchain.txt", mode="r") as f:
-        file_content = f.readlines()
-        global blockchain
-        global open_transactions
-        blockchain = json.loads(file_content[0][:-1])
-        updated_blockchain = []
-        for block in blockchain:
-            updated_block = {
-                "previous_hash": block["previous_hash"],
-                "index": block["index"],
-                "proof": block["proof"],
-                "transactions": [OrderedDict(
-                    [("sender", tx["sender"]), ("recipient", tx["recipient"]), ("amount", tx["amount"])]) for tx in block["transactions"]]
-            }
-            updated_blockchain.append(updated_block)
-        blockchain = updated_blockchain
-        open_transactions = json.loads(file_content[1])
-        updated_transactions = []
-        for tx in open_transactions:
-            updated_transaction = OrderedDict(
-                [("sender", tx["sender"]), ("recipient", tx["recipient"]), ("amount", tx["amount"])])
-            updated_transactions.append(updated_transaction)
-        open_transactions = updated_transactions
+    """Initialize blockchain + open transactions data from a file."""
+    global blockchain
+    global open_transactions
+    try:
+        with open("blockchain.txt", mode="r") as f:
+            # file_content = pickle.loads(f.read())
+            file_content = f.readlines()
+            # blockchain = file_content["chain"]
+            # open_transactions = file_content["ot"]
+            blockchain = json.loads(file_content[0][:-1])
+            updated_blockchain = []
+            for block in blockchain:
+                updated_block = {
+                    "previous_hash": block["previous_hash"],
+                    "index": block["index"],
+                    "proof": block["proof"],
+                    "transactions": [OrderedDict(
+                        [("sender", tx["sender"]), ("recipient", tx["recipient"]), ("amount", tx["amount"])]) for tx in block["transactions"]]
+                }
+                updated_blockchain.append(updated_block)
+            blockchain = updated_blockchain
+            open_transactions = json.loads(file_content[1])
+            updated_transactions = []
+            for tx in open_transactions:
+                updated_transaction = OrderedDict(
+                    [("sender", tx["sender"]), ("recipient", tx["recipient"]), ("amount", tx["amount"])])
+                updated_transactions.append(updated_transaction)
+            open_transactions = updated_transactions
+    except (IOError, IndexError):
+        genesis_block = {
+            "previous_hash": "",
+            "index": 0,
+            "transactions": [],
+            "proof": 100
+        }
+        blockchain = [genesis_block]
+        open_transactions = []
+    finally:
+        print("Cleanup!")
 
 
 load_data()
 
 
 def save_data():
-    with open("blockchain.txt", mode="w") as f:
-        f.write(json.dumps(blockchain))
-        f.write("\n")
-        f.write(json.dumps(open_transactions))
+    """Save blockchain + open transactions snapshot to a file."""
+    try:
+        with open("blockchain.txt", mode="w") as f:
+            f.write(json.dumps(blockchain))
+            f.write("\n")
+            f.write(json.dumps(open_transactions))
+            # save_data = {
+            #     "chain": blockchain,
+            #     "ot": open_transactions
+            # }
+            # f.write(pickle.dumps(save_data))
+    except IOError:
+        print("Saving failed!")
 
 
 def valid_proof(transactions, last_hash, proof):
+    """Validate a proof of work number and see if it solves the puzzle algorithm
+    (two leading 0s)
+
+    Arguments:
+        :transactions: The transactions of the block for which the proof is created.
+        :last_hash: The previous block's hash which will be stored in the current block.
+        :proof: The proof number we're testing.
+    """
     guess = (str(transactions) + str(last_hash) + str(proof)).encode()
     guess_hash = hash_string_256(guess)
-    print(guess_hash)
     return guess_hash[0:2] == "00"
 
 
 def proof_of_work():
+    """Generate a proof of work for the open transactions, the hash of the
+    previous block and a random number (which is guessed until it fits).
+    """
     last_block = blockchain[-1]
     last_hash = hash_block(last_block)
     proof = 0

@@ -4,7 +4,7 @@ import json
 
 def hash_string_256(string):
     """Create a SHA256 hash for a given input string.
-    
+
     Arguments:
         :string: The string which should be hashed.
     """
